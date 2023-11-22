@@ -10,6 +10,7 @@ class KeyLoggerApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Key Logger App")
+        self.root.geometry("800x600")  # You can adjust the size as needed
 
         self.stop_button = tk.Button(root, text="Stop Recording", command=self.stop_recording, state=tk.NORMAL)
         self.stop_button.pack(pady=10)
