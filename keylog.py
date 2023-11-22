@@ -2,18 +2,17 @@ import tkinter as tk
 from pynput import keyboard, mouse
 import pyautogui
 import os
-import threading
 
 class KeyLoggerApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Key Logger App")
 
-        self.record_button = tk.Button(root, text="Start Recording", command=self.start_recording)
-        self.record_button.pack(pady=10)
-
-        self.stop_button = tk.Button(root, text="Stop Recording", command=self.stop_recording, state=tk.DISABLED)
+        self.stop_button = tk.Button(root, text="Stop Recording", command=self.stop_recording, state=tk.NORMAL)
         self.stop_button.pack(pady=10)
+
+        self.restart_button = tk.Button(root, text="Restart Recording", command=self.restart_recording, state=tk.DISABLED)
+        self.restart_button.pack(pady=10)
 
         self.pressed_keys = []
         self.screenshot_count = 1
@@ -26,6 +25,9 @@ class KeyLoggerApp:
 
         self.keyboard_listener = None
         self.mouse_listener = None
+
+        # Start recording automatically
+        self.start_recording()
 
     def clean_path(self, path):
         valid_chars = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_./\\")
@@ -66,8 +68,8 @@ class KeyLoggerApp:
             self.mouse_listener.stop()
 
     def start_recording(self):
-        self.record_button.config(state=tk.DISABLED)
         self.stop_button.config(state=tk.NORMAL)
+        self.restart_button.config(state=tk.DISABLED)
         self.pressed_keys = []
         self.screenshot_count = 1
         self.recording_counter += 1
@@ -75,13 +77,18 @@ class KeyLoggerApp:
         self.start_listening()
 
     def stop_recording(self):
-        self.record_button.config(state=tk.NORMAL)
         self.stop_button.config(state=tk.DISABLED)
+        self.restart_button.config(state=tk.NORMAL)
         self.stop_listening()
         print("Recorded keys:", self.pressed_keys)
         with open(self.keys_file_path, "w") as keys_file:
             keys_file.write("\n".join(self.pressed_keys))
             print(f"Recorded keys saved to: {self.keys_file_path}")
+
+    def restart_recording(self):
+        self.stop_button.config(state=tk.NORMAL)
+        self.restart_button.config(state=tk.DISABLED)
+        self.start_recording()
 
 if __name__ == "__main__":
     root = tk.Tk()
