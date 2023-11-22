@@ -17,7 +17,7 @@ class KeyLoggerApp:
 
         self.pressed_keys = []
         self.screenshot_count = 1
-        self.recording_counter = 1  # Added counter for the recording sessions
+        self.recording_counter = 1
         self.output_path = "D:/code_dao/py/output/"
         self.screenshot_path = os.path.join(self.output_path, "screenshots/")
         self.keys_file_path = os.path.join(self.output_path, f"recorded_keys_{self.recording_counter}.txt")
@@ -46,9 +46,12 @@ class KeyLoggerApp:
             os.makedirs(clean_path_screenshot_path, exist_ok=True)
             screenshot_name = f"screenshot_{self.screenshot_count}_{self.recording_counter}.png"
             self.screenshot_count += 1
-            screenshot = pyautogui.screenshot()
-            screenshot.save(os.path.join(clean_path_screenshot_path, screenshot_name))
-            print(f"Screenshot captured: {screenshot_name}")
+            self.root.after(1, lambda: self.capture_screenshot(screenshot_name))
+
+    def capture_screenshot(self, screenshot_name):
+        screenshot = pyautogui.screenshot()
+        screenshot.save(os.path.join(self.screenshot_path, screenshot_name))
+        print(f"Screenshot captured: {screenshot_name}")
 
     def start_listening(self):
         self.keyboard_listener = keyboard.Listener(on_press=self.on_press)
